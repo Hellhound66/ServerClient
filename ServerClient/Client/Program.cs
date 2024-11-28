@@ -3,33 +3,44 @@
 using System.Net;
 using System.Net.Sockets;
 using Messages.Extensions;
-using Messages.NetworkMessages;
+using Messages.Messages;
 
-var cts = new CancellationTokenSource();
-var cancellationToken = cts.Token;
+namespace Client;
 
-var foo = new TcpClient();
-await foo.ConnectAsync(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 8081), cancellationToken);
-
-
-await foo.SendMessage(new ClientTriesToConnectMessage
+internal static class Program
 {
-    PublicName = "Foo",
-    Identifier = Guid.NewGuid(),
-    SystemTime = DateTime.Now,
-}, cancellationToken);
+    public static async Task Main(string[] args)
+    {
+        var cts = new CancellationTokenSource();
+        var ct = cts.Token;
 
-await foo.SendMessage(new KeepAliveMessage
-{
-    Identifier = Guid.NewGuid(),
-    SystemTime = DateTime.Now,
-}, cancellationToken);
+        var clientTasks = Enumerable.Range(0, 10).Select(_ => CreateClient(ct)).ToArray();
+        await Task.WhenAll(clientTasks);
 
-await foo.SendMessage(new ShutdownServerMessage
-{
-    Identifier = Guid.NewGuid(),
-    SystemTime = DateTime.Now,
-}, cancellationToken);
+        Console.ReadKey();
+    }
 
-await foo.GetStream().FlushAsync();
-await Task.Delay(500);
+    private static async Task CreateClient(CancellationToken cancellationToken)
+    {
+        var foo = new TcpClient();
+        await foo.ConnectAsync(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 8081), cancellationToken);
+        foo.NoDelay = true;
+
+        await foo.SendMessage(new KeepAliveMessage
+        {
+        }, cancellationToken);
+
+        await foo.SendMessage(new KeepAliveMessage
+        {
+        }, cancellationToken);
+        await foo.SendMessage(new KeepAliveMessage
+        {
+        }, cancellationToken);
+        await foo.SendMessage(new KeepAliveMessage
+        {
+        }, cancellationToken);
+
+        await Task.Delay(5000, cancellationToken);
+    }
+
+}

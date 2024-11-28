@@ -1,9 +1,8 @@
 ﻿using System.Net.Sockets;
-using Server.Connections;
 
-namespace Server.Contracts;
+namespace Messages.Connections.Contracts;
 
-internal interface IConnectedClientFactory
+public interface IConnectedClientFactory
 {
     ConnectedClient Create(TcpClient client, CancellationToken cancellationToken);
 }

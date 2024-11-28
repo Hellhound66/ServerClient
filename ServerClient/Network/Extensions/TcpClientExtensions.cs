@@ -6,7 +6,7 @@ namespace Messages.Extensions;
 
 public static class TcpClientExtensions
 {
-    public static async Task SendMessage(this TcpClient client, INetworkMessage message, CancellationToken cancellationToken)
+    public static async Task SendMessage(this TcpClient client, IStreamableMessage message, CancellationToken cancellationToken)
     {
         message.MessageType = message.GetType().AssemblyQualifiedName!;
         await client.GetStream().WriteAsync(

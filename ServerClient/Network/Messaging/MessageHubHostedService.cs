@@ -1,9 +1,9 @@
-﻿using Microsoft.Extensions.Hosting;
-using Server.Contracts;
+﻿using Messages.Messaging.Contracts;
+using Microsoft.Extensions.Hosting;
 
-namespace Server.Messaging;
+namespace Messages.Messaging;
 
-internal class MessageHubService(IMessageHub messageHub) : IHostedService
+public class MessageHubHostedService(IMessageHub messageHub) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
