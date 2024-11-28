@@ -1,43 +1,42 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using Messages.Connections.Contracts;
+using Messages.Messages;
+using Messages.Messaging.Contracts;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using Server.Connections;
-using Server.Contracts;
 
 namespace Server;
 
 internal class ServerHostedService(
     IOptions<ServerOptions> serverOptions,
     IMessageHub messageHub,
-    ConnectedClientFactory connectedClientFactory,
-    Watchdog _) : IHostedService
+    IConnectedClientFactory connectedClientFactory,
+    Watchdog watchdog) : IHostedService
 {
-    private readonly List<ConnectedClient> _connections = [];
-    private Task _networkListenerTask = Task.CompletedTask;
-    private SemaphoreSlim _endApplicationSemaphore = new(0);
-    
+    private readonly Watchdog _watchdog = watchdog;
+
+    private static Guid ServerIdentifier { get; } = Guid.NewGuid();
+
     #region IHostedService implementation
     
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _networkListenerTask = StartListeningToNetwork(cancellationToken);
-
         try
         {
-            await _endApplicationSemaphore.WaitAsync(cancellationToken);        
+            await StartListeningToNetwork(cancellationToken);
         }
         catch (OperationCanceledException)
+        {
+            // Ignore
+        }
+        finally
         {
             await StopAsync(CancellationToken.None);
         }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        messageHub.Stop();
-        return Task.CompletedTask;
-    }
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     #endregion
 
@@ -49,8 +48,13 @@ internal class ServerHostedService(
         while (!cancellationToken.IsCancellationRequested)
         {
             var client = await listener.AcceptTcpClientAsync(cancellationToken);
-            
-            _connections.Add(connectedClientFactory.Create(client, cancellationToken));
+
+            var connectedClient = connectedClientFactory.Create(client, cancellationToken);
+
+            messageHub.SendMessage(new ClientConnectedMessage
+            {
+                ConnectedClient = connectedClient,
+            }, ServerIdentifier);
         }
     }
 }

@@ -1,6 +1,6 @@
-﻿using Messages.NetworkMessages;
+﻿using Messages.Messages;
+using Messages.Messaging.Contracts;
 using Microsoft.Extensions.Hosting;
-using Server.Contracts;
 
 namespace Server;
 
@@ -18,13 +18,13 @@ public class Watchdog
     
     #region Messages
     
-    private static Task ReactToKeepAliveMessage(KeepAliveMessage message, CancellationToken token)
+    private static Task ReactToKeepAliveMessage(KeepAliveMessage keepAliveMessage, Guid sender, CancellationToken cancellationToken)
     {
-        Console.WriteLine($"Received keep alive message. Sender {message.Identifier}, Time {message.SystemTime}");
+        Console.WriteLine($"Received keep alive message. Sender {sender}, time {DateTime.Now}");
         return Task.CompletedTask;
     }
 
-    private Task ReactToShutDownServerMessage(ShutdownServerMessage message, CancellationToken token)
+    private Task ReactToShutDownServerMessage(ShutdownServerMessage shutdownServerMessage, Guid sender, CancellationToken cancellationToken)
     {
         _hostedApplicationLifetime.StopApplication();
         
