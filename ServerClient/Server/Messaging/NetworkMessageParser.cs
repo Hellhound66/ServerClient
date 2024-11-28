@@ -11,7 +11,9 @@ public class NetworkMessageParser(IMessageHub messageHub) : INetworkMessageParse
 {
     #region INetworkMessageServer implementation
     
-    public async Task ReactToIncomingData(TcpClient client, MemoryStream stream, int bytesRead, CancellationToken cancellationToken)
+    public async Task ReactToIncomingData(Guid sender, MemoryStream stream,
+        int bytesRead,
+        CancellationToken cancellationToken)
     {
         while (stream.Length > 0)
         {
@@ -24,33 +26,45 @@ public class NetworkMessageParser(IMessageHub messageHub) : INetworkMessageParse
             if (cancellationToken.IsCancellationRequested)
                 return;
 
-            var bytesParsed = await ProcessMessageBuffer(localBuffer, bufferLength, cancellationToken);
+            var (bytesParsed, message) = await ProcessMessageBuffer(localBuffer, bufferLength, cancellationToken);
             if (bytesParsed == 0)
                 return;
 
             RemoveAlreadyParsedBytesFromStream(stream, bytesParsed);
+
+            messageHub.SendMessage(message, sender);
         }
     }
 
-    private static void RemoveAlreadyParsedBytesFromStream(MemoryStream stream, int bytesParsed)
+    #endregion
+
+    #region Public static methods
+    
+    public static IStreamableMessage PopulateNetworkMessage(IStreamableMessage streamableMessage)
+    {
+        streamableMessage.MessageType = streamableMessage.GetType().AssemblyQualifiedName!;
+        return streamableMessage;
+    }
+    
+    public static void RemoveAlreadyParsedBytesFromStream(MemoryStream stream, int bytesParsed)
     {
         var buf = stream.GetBuffer();            
         Buffer.BlockCopy(buf, bytesParsed, buf, 0, (int)stream.Length - bytesParsed);
         stream.SetLength(stream.Length - bytesParsed);
     }
-    
+
     #endregion
     
-    private async Task<int> ProcessMessageBuffer(byte[] localBuffer, int bufferLength, CancellationToken cancellationToken)
+    private static async Task<(int, IStreamableMessage)> ProcessMessageBuffer(byte[] localBuffer, int bufferLength, 
+        CancellationToken cancellationToken)
     {
         var (canBeParsed, size) = CanMessageBeParsed(localBuffer, bufferLength);
         if (!canBeParsed)
-            return 0;
+            return (0, default)!;
         
         var message = await DeserializeNetworkMessage(localBuffer, size, cancellationToken);
-        messageHub.PushMessage(message!);
         
-        return size;
+        return (size, message)!;
     }
 
     private static (bool canBeParsed, int size) CanMessageBeParsed(byte[] localBuffer, int bufferLength)
@@ -73,10 +87,10 @@ public class NetworkMessageParser(IMessageHub messageHub) : INetworkMessageParse
         return (false, default);
     }
 
-    private static async Task<INetworkMessage?> DeserializeNetworkMessage(byte[] localBuffer, int size,
+    private static async Task<IStreamableMessage?> DeserializeNetworkMessage(byte[] localBuffer, int size,
         CancellationToken cancellationToken)
     {
-        var networkMessageBase = await JsonSerializer.DeserializeAsync<NetworkMessage>(new MemoryStream(
+        var networkMessageBase = await JsonSerializer.DeserializeAsync<StreamableMessage>(new MemoryStream(
             localBuffer, 0, size), JsonSerializerOptions.Default, cancellationToken);
         
         if (networkMessageBase == null)
@@ -85,7 +99,7 @@ public class NetworkMessageParser(IMessageHub messageHub) : INetworkMessageParse
         if (messageType == null)
             throw new InvalidNetworkMessageException($"Invalid message type {networkMessageBase.MessageType}");
         
-        return (INetworkMessage?)await JsonSerializer.DeserializeAsync(
+        return (IStreamableMessage?)await JsonSerializer.DeserializeAsync(
             new MemoryStream(localBuffer, 0, size), 
             messageType,
             JsonSerializerOptions.Default, 

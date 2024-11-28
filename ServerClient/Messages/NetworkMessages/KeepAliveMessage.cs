@@ -1,5 +1,5 @@
 ﻿namespace Messages.NetworkMessages;
 
-public class KeepAliveMessage : NetworkMessage
+public class KeepAliveMessage : StreamableMessage
 {
 }

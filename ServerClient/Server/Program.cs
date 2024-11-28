@@ -25,7 +25,8 @@ builder.Services
     .AddSingleton<INetworkMessageParser, NetworkMessageParser>()
     .AddSingleton<IMessageHub, MessageHub>()
     .AddSingleton<ConnectedClientFactory>()
-    .AddSingleton<Watchdog>();
+    .AddSingleton<Watchdog>()
+    .AddSingleton<ConnectionHub>();
 
 // Start server as hosted service.
 await builder.Build().StartAsync();

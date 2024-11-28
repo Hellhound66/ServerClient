@@ -1,5 +1,5 @@
 ﻿namespace Messages.NetworkMessages;
 
-public class ShutdownServerMessage : NetworkMessage
+public class ShutdownServerMessage : StreamableMessage
 {
 }

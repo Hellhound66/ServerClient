@@ -7,13 +7,13 @@ namespace Server.Messaging;
 
 internal class MessageHub : IMessageHub
 {
-    private readonly ConcurrentDictionary<Type, List<Func<IMessage, CancellationToken, Task>>> _messageListener = new();
-    private readonly ConcurrentQueue<IMessage> _messageQueue = new();
+    private readonly ConcurrentDictionary<Type, List<Func<IMessage, Guid, CancellationToken, Task>>> _messageListener = new();
+    private readonly ConcurrentQueue<(IMessage, Guid)> _messageQueue = new();
     private readonly SemaphoreSlim _queueSemaphore = new(0);
 
     private bool _isRunning = true;
 
-    public void RegisterListener<T>(Func<T, CancellationToken, Task> action) where T : IMessage
+    public void RegisterListener<T>(Func<T, Guid, CancellationToken, Task> action) where T : IMessage
     {
         if (!_messageListener.TryGetValue(typeof(T), out var listenerList))
         {
@@ -21,15 +21,16 @@ internal class MessageHub : IMessageHub
             _messageListener.TryAdd(typeof(T), listenerList);
         }
 
-        listenerList.Add((message, token) => action((T)message, token));
+        listenerList.Add((message, sender, token) => action((T)message, sender, token));
     }
 
-    public void PushMessage(IMessage message)
+    public void SendMessage(IMessage message, Guid sender)
     {
-        _messageQueue.Enqueue(message);
+        _messageQueue.Enqueue((message, sender));
         _queueSemaphore.Release();
     }
 
+    
     public void Stop()
     {
         _isRunning = false;
@@ -45,10 +46,10 @@ internal class MessageHub : IMessageHub
             try
             {
                 await _queueSemaphore.WaitAsync(cancellationToken);
-                if (!_messageQueue.TryDequeue(out var messageContainer))
+                if (!_messageQueue.TryDequeue(out (IMessage message, Guid sender) message))
                     continue;
 
-                await DistributeMessage(messageContainer, cancellationToken);
+                await DistributeMessage(message.message, message.sender, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -57,22 +58,24 @@ internal class MessageHub : IMessageHub
         }
     }
 
-    private async Task DistributeMessage(IMessage message, CancellationToken cancellationToken)
+    private async Task DistributeMessage(IMessage message, Guid sender, CancellationToken cancellationToken)
     {
         if (message == null)
             throw new InvalidNetworkMessageException("Container contains faulty message");
 
-        if (!_messageListener.TryGetValue(message.GetType(), out var listeners) || listeners.Count == 0)
+        var messageType = message.GetType();
+        
+        if (!_messageListener.TryGetValue(messageType, out var listeners) || listeners.Count == 0)
         {
-            DropMessage(message);
+            DropMessage(message, sender);
             return;
         }
 
         foreach(var listener in listeners)
-            await listener(message, cancellationToken);
+            await listener(message, sender, cancellationToken);
     }
 
-    private static void DropMessage(IMessage message)
+    private static void DropMessage(IMessage message, Guid sender)
     {
         Console.WriteLine("Warning: Dropped message.");
     }

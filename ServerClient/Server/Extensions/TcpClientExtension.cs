@@ -9,7 +9,7 @@ public static class TcpClientExtension
     {
         var foo = IPGlobalProperties.GetIPGlobalProperties()
             .GetActiveTcpConnections()
-            .SingleOrDefault(x => x.LocalEndPoint.Equals(tcpClient.Client.LocalEndPoint));
+            .FirstOrDefault(x => x.LocalEndPoint.Equals(tcpClient.Client.LocalEndPoint));
         return foo?.State ?? TcpState.Unknown;
     }
 }
