@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using Messages;
 using Messages.Connections.Contracts;
 using Messages.Messages;
 using Messages.Messaging.Contracts;

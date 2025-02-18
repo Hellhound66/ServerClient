@@ -27,7 +27,6 @@ public class Watchdog
     private Task ReactToShutDownServerMessage(ShutdownServerMessage shutdownServerMessage, Guid sender, CancellationToken cancellationToken)
     {
         _hostedApplicationLifetime.StopApplication();
-        
         return Task.CompletedTask;
     }
 

@@ -1,6 +1,5 @@
-﻿using Messages.Extensions;
-using Messages.Messaging;
-using Messages.Messaging.Contracts;
+﻿using Messages;
+using Messages.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

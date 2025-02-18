@@ -1,4 +1,4 @@
-﻿namespace Server;
+﻿namespace Messages;
 
 public class ServerOptions
 {

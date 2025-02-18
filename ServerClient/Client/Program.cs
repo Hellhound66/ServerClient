@@ -1,46 +1,30 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-using System.Net;
-using System.Net.Sockets;
+using Client;
+using Messages;
 using Messages.Extensions;
-using Messages.Messages;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
-namespace Client;
+var builder = Host.CreateApplicationBuilder(args);
 
-internal static class Program
-{
-    public static async Task Main(string[] args)
-    {
-        var cts = new CancellationTokenSource();
-        var ct = cts.Token;
+// Setup configuration.
+builder.Configuration.Sources.Clear();
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
 
-        var clientTasks = Enumerable.Range(0, 10).Select(_ => CreateClient(ct)).ToArray();
-        await Task.WhenAll(clientTasks);
+// Setup options.
+builder.Services.Configure<ServerOptions>(builder.Configuration.GetSection(nameof(ServerOptions)));
 
-        Console.ReadKey();
-    }
+// Setup network
+builder.AddNetwork();
 
-    private static async Task CreateClient(CancellationToken cancellationToken)
-    {
-        var foo = new TcpClient();
-        await foo.ConnectAsync(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 8081), cancellationToken);
-        foo.NoDelay = true;
+// Setup DI
+builder.Services
+    .AddHostedService<ClientHostedService>();
 
-        await foo.SendMessage(new KeepAliveMessage
-        {
-        }, cancellationToken);
-
-        await foo.SendMessage(new KeepAliveMessage
-        {
-        }, cancellationToken);
-        await foo.SendMessage(new KeepAliveMessage
-        {
-        }, cancellationToken);
-        await foo.SendMessage(new KeepAliveMessage
-        {
-        }, cancellationToken);
-
-        await Task.Delay(5000, cancellationToken);
-    }
-
-}
+// Start server as hosted service.
+await builder.Build().StartAsync();
